@@ -55,23 +55,26 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             }
             
             // 检查Token是否在黑名单中（已登出）
-            String blacklistKey = "token:blacklist:" + token;
+            final String finalToken = token;
+            String blacklistKey = "token:blacklist:" + finalToken;
+            final ServerHttpRequest finalRequest = request;
+            final ServerWebExchange finalExchange = exchange;
             return redisTemplate.hasKey(blacklistKey)
                 .flatMap(isBlacklisted -> {
                     if (Boolean.TRUE.equals(isBlacklisted)) {
-                        return unauthorized(exchange.getResponse());
+                        return unauthorized(finalExchange.getResponse());
                     }
                     
                     // Token有效，将用户信息传递给下游服务
-                    Long userId = JwtUtils.getUserIdFromToken(token);
-                    String username = JwtUtils.getUsernameFromToken(token);
+                    Long userId = JwtUtils.getUserIdFromToken(finalToken);
+                    String username = JwtUtils.getUsernameFromToken(finalToken);
                     
-                    ServerHttpRequest modifiedRequest = request.mutate()
+                    ServerHttpRequest modifiedRequest = finalRequest.mutate()
                         .header("X-User-Id", String.valueOf(userId))
                         .header("X-Username", username)
                         .build();
                     
-                    return chain.filter(exchange.mutate().request(modifiedRequest).build());
+                    return chain.filter(finalExchange.mutate().request(modifiedRequest).build());
                 });
         }
 
