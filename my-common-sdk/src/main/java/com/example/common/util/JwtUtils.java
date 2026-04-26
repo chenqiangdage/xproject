@@ -25,6 +25,16 @@ public class JwtUtils {
                 .signWith(getSecretKey())
                 .compact();
     }
+    
+    public static String generateToken(Long userId, String username) {
+        return Jwts.builder()
+                .claim("userId", userId)
+                .subject(username)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .signWith(getSecretKey())
+                .compact();
+    }
 
     public static Claims validateToken(String token) {
         return Jwts.parser()
@@ -37,6 +47,11 @@ public class JwtUtils {
     public static String getUsernameFromToken(String token) {
         Claims claims = validateToken(token);
         return claims.getSubject();
+    }
+    
+    public static Long getUserIdFromToken(String token) {
+        Claims claims = validateToken(token);
+        return claims.get("userId", Long.class);
     }
 
     public static boolean isTokenValid(String token) {
