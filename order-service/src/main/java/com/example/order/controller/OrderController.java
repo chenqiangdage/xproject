@@ -4,18 +4,25 @@ import com.example.common.result.Result;
 import com.example.order.feign.UserFeignClient;
 import com.example.order.model.Order;
 import com.example.order.model.User;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/order")
+@Tag(name = "订单服务", description = "订单查询、创建等订单管理相关接口")
 public class OrderController {
 
     @Autowired
     private UserFeignClient userFeignClient;
 
     @GetMapping("/{id}")
-    public Result<Order> getOrderById(@PathVariable Long id) {
+    @Operation(summary = "获取订单信息", description = "根据订单ID获取订单详细信息，包含用户信息")
+    public Result<Order> getOrderById(
+            @Parameter(description = "订单ID", required = true, example = "1")
+            @PathVariable Long id) {
         // 通过Feign调用user-service获取用户信息
         Result<User> userResult = userFeignClient.getUserById(1L);
         User user = userResult.getData();
@@ -30,7 +37,10 @@ public class OrderController {
     }
     
     @PostMapping
-    public Result<Order> createOrder(@RequestBody CreateOrderRequest request) {
+    @Operation(summary = "创建订单", description = "创建新订单，会自动关联用户信息")
+    public Result<Order> createOrder(
+            @Parameter(description = "创建订单请求，包含用户ID和金额", required = true)
+            @RequestBody CreateOrderRequest request) {
         // 通过Feign调用user-service获取用户信息（会自动传递Token）
         Result<User> userResult = userFeignClient.getUserById(request.getUserId());
         

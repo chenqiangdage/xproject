@@ -18,3 +18,9 @@ spring:
         enabled: false
       discovery:
         server-addr: 127.0.0.1:8848
+
+springdoc:
+  api-docs:
+    group: auth-service
+  swagger-ui:
+    path: /swagger-ui.html

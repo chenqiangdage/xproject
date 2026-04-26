@@ -36,3 +36,13 @@ spring:
           uri: lb://order-service
           predicates:
             - Path=/api/order/**
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: 认证服务
+        url: /v3/api-docs?group=auth-service
+      - name: 用户服务
+        url: /v3/api-docs?group=user-service
+      - name: 订单服务
+        url: /v3/api-docs?group=order-service
