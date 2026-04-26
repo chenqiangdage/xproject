@@ -13,12 +13,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
 @Component
 public class AuthGlobalFilter implements GlobalFilter, Ordered {
 
     private static final List<String> WHITE_LIST = List.of("/api/auth/login");
+    
+    // 网关签名密钥（生产环境应该从配置中心获取）
+    private static final String GATEWAY_SECRET_KEY = "gateway-secret-key-2026";
     
     private final ReactiveStringRedisTemplate redisTemplate;
 
@@ -69,9 +76,14 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
                     Long userId = JwtUtils.getUserIdFromToken(finalToken);
                     String username = JwtUtils.getUsernameFromToken(finalToken);
                     
+                    // 生成网关签名（防止请求被伪造）
+                    String signature = generateSignature(finalRequest, userId, username);
+                    
                     ServerHttpRequest modifiedRequest = finalRequest.mutate()
                         .header("X-User-Id", String.valueOf(userId))
                         .header("X-Username", username)
+                        .header("X-Gateway-Signature", signature)
+                        .header("X-Gateway-Timestamp", String.valueOf(System.currentTimeMillis()))
                         .build();
                     
                     return chain.filter(finalExchange.mutate().request(modifiedRequest).build());
@@ -84,6 +96,32 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
     private Mono<Void> unauthorized(ServerHttpResponse response) {
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         return response.setComplete();
+    }
+    
+    /**
+     * 生成网关签名（HMAC-SHA256）
+     * 签名内容：userId + username + timestamp + path
+     */
+    private String generateSignature(ServerHttpRequest request, Long userId, String username) {
+        try {
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            String path = request.getURI().getPath();
+            
+            // 签名字符串
+            String dataToSign = userId + ":" + username + ":" + timestamp + ":" + path;
+            
+            // HMAC-SHA256签名
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(
+                GATEWAY_SECRET_KEY.getBytes(StandardCharsets.UTF_8), "HmacSHA256"
+            );
+            mac.init(secretKey);
+            byte[] hash = mac.doFinal(dataToSign.getBytes(StandardCharsets.UTF_8));
+            
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate signature", e);
+        }
     }
 
     @Override
