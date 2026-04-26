@@ -16,6 +16,7 @@ public class OrderController {
 
     @GetMapping("/{id}")
     public Result<Order> getOrderById(@PathVariable Long id) {
+        // 通过Feign调用user-service获取用户信息
         Result<User> userResult = userFeignClient.getUserById(1L);
         User user = userResult.getData();
         
@@ -26,5 +27,50 @@ public class OrderController {
         order.setAmount(99.99);
         
         return Result.success(order);
+    }
+    
+    @PostMapping
+    public Result<Order> createOrder(@RequestBody CreateOrderRequest request) {
+        // 通过Feign调用user-service获取用户信息（会自动传递Token）
+        Result<User> userResult = userFeignClient.getUserById(request.getUserId());
+        
+        if (userResult.getCode() != 200 || userResult.getData() == null) {
+            return Result.error(404, "User not found");
+        }
+        
+        User user = userResult.getData();
+        
+        // 创建订单，包含用户信息
+        Order order = new Order();
+        order.setId(System.currentTimeMillis());
+        order.setOrderNo("ORDER_" + System.currentTimeMillis());
+        order.setUser(user);
+        order.setAmount(request.getAmount());
+        
+        System.out.println("订单创建成功: " + order.getOrderNo() + ", 用户: " + user.getName());
+        
+        return Result.success(order);
+    }
+    
+    // 请求DTO
+    public static class CreateOrderRequest {
+        private Long userId;
+        private Double amount;
+        
+        public Long getUserId() {
+            return userId;
+        }
+        
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+        
+        public Double getAmount() {
+            return amount;
+        }
+        
+        public void setAmount(Double amount) {
+            this.amount = amount;
+        }
     }
 }
