@@ -32,8 +32,11 @@ public class JwtAuthFilter implements Filter {
         
         String path = request.getRequestURI();
         
-        // 跳过健康检查等公开接口
-        if (path.startsWith("/actuator/") || path.equals("/health")) {
+        // 跳过健康检查、Swagger文档等公开接口
+        if (path.startsWith("/actuator/") || 
+            path.equals("/health") ||
+            path.startsWith("/swagger-ui") ||
+            path.startsWith("/v3/api-docs")) {
             filterChain.doFilter(servletRequest, servletResponse);
             return;
         }
