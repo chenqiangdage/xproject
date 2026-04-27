@@ -4,23 +4,25 @@ import com.example.common.util.JwtUtils;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.io.IOException;
 
 /**
- * JWT认证过滤器 - 保护内部服务不被未授权访问
+ * JWT认证过滤器
  */
+@Slf4j
 @Component
 @Order(1)
 public class JwtAuthFilter implements Filter {
 
-    // 网关签名密钥（必须与gateway-service保持一致）
+    // 网关签名密钥（与gateway-service保持一致）
     private static final String GATEWAY_SECRET_KEY = "gateway-secret-key-2026";
 
     @Override
@@ -32,7 +34,7 @@ public class JwtAuthFilter implements Filter {
         
         String path = request.getRequestURI();
         
-        // 跳过健康检查、Swagger文档等公开接口
+        // 跳过Swagger等公开接口
         if (path.startsWith("/actuator/") || 
             path.equals("/health") ||
             path.startsWith("/swagger-ui") ||
@@ -41,46 +43,45 @@ public class JwtAuthFilter implements Filter {
             return;
         }
         
-        // 从请求头获取Token
+        // 获取请求头中的Token
         String authorization = request.getHeader("Authorization");
         
-        // 优先验证Authorization header中的Token
+        // 验证JWT Token
         if (authorization != null && authorization.startsWith("Bearer ")) {
             String token = authorization.substring(7);
-            if (JwtUtils.isTokenValid(token)) {
-                // Token有效，放行
-                filterChain.doFilter(servletRequest, servletResponse);
-                return;
+            try {
+                if (JwtUtils.isTokenValid(token)) {
+                    log.debug("JWT Token验证通过: {}", path);
+                    filterChain.doFilter(servletRequest, servletResponse);
+                    return;
+                }
+            } catch (Exception e) {
+                log.warn("JWT Token验证失败: {}", e.getMessage());
             }
         }
         
-        // 如果没有Authorization header，检查是否是来自网关的内部调用
+        // 验证网关签名（内部服务调用）
         String userId = request.getHeader("X-User-Id");
         String username = request.getHeader("X-Username");
         String gatewaySignature = request.getHeader("X-Gateway-Signature");
         String timestamp = request.getHeader("X-Gateway-Timestamp");
         
         if (userId != null && username != null && gatewaySignature != null && timestamp != null) {
-            // 验证网关签名
             if (verifyGatewaySignature(request, userId, username, timestamp, gatewaySignature)) {
-                // 签名验证通过，放行
+                log.debug("网关签名验证通过: {}", path);
                 filterChain.doFilter(servletRequest, servletResponse);
                 return;
             } else {
-                // 签名验证失败
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"code\":401,\"message\":\"Invalid gateway signature\"}");
-                return;
+                log.warn("网关签名验证失败");
             }
         }
         
-        // 既没有有效Token，也没有有效的网关签名，拒绝访问
+        // 未通过认证，返回401
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write("{\"code\":401,\"message\":\"Unauthorized: Valid token or gateway signature required\"}");
+        response.getWriter().write("{\"code\":401,\"message\":\"未授权访问\",\"data\":null}");
     }
-    
+
     /**
      * 验证网关签名
      */
@@ -91,7 +92,8 @@ public class JwtAuthFilter implements Filter {
             long requestTime = Long.parseLong(timestamp);
             long currentTime = System.currentTimeMillis();
             if (currentTime - requestTime > 5 * 60 * 1000) {
-                return false; // 请求超时
+                log.warn("请求时间戳已过期");
+                return false;
             }
             
             // 重新计算签名
@@ -106,9 +108,9 @@ public class JwtAuthFilter implements Filter {
             byte[] hash = mac.doFinal(dataToSign.getBytes(StandardCharsets.UTF_8));
             String expectedSignature = Base64.getEncoder().encodeToString(hash);
             
-            // 比较签名
             return expectedSignature.equals(signature);
         } catch (Exception e) {
+            log.error("验证网关签名失败", e);
             return false;
         }
     }

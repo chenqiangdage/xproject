@@ -1,17 +1,18 @@
 package com.example.jiajiebang.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.info.License;
-import io.swagger.v3.oas.models.security.SecurityRequirement;
-import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.Arrays;
 
+/**
+ * Swagger配置类
+ */
 @Configuration
 public class SwaggerConfig {
 
@@ -19,15 +20,9 @@ public class SwaggerConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("家洁帮服务 API")
+                        .title("家洁帮小程序 API")
                         .version("1.0.0")
-                        .description("家洁帮小程序后台服务，提供家政预约、订单管理等功能")
-                        .contact(new Contact()
-                                .name("开发团队")
-                                .email("dev@example.com"))
-                        .license(new License()
-                                .name("Apache 2.0")
-                                .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
+                        .description("家洁帮小程序后端服务接口文档"))
                 .components(new Components()
                         .addSecuritySchemes("bearer-jwt", 
                                 new SecurityScheme()
