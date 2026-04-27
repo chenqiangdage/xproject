@@ -1,0 +1,20 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: jiajiebang-service
+  cloud:
+    nacos:
+      username: nacos
+      password: 123456
+      config:
+        enabled: false
+      discovery:
+        server-addr: 127.0.0.1:8848
+
+springdoc:
+  api-docs:
+    group: jiajiebang-service
+  swagger-ui:
+    path: /swagger-ui.html
