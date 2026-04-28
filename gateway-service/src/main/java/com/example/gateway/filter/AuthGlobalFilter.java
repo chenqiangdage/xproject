@@ -79,12 +79,20 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
                     // 生成网关签名（防止请求被伪造）
                     String signature = generateSignature(finalRequest, userId, username);
                     
-                    ServerHttpRequest modifiedRequest = finalRequest.mutate()
+                    // 构建新的请求，保留原始Authorization header并添加网关签名
+                    ServerHttpRequest.Builder requestBuilder = finalRequest.mutate()
                         .header("X-User-Id", String.valueOf(userId))
                         .header("X-Username", username)
                         .header("X-Gateway-Signature", signature)
-                        .header("X-Gateway-Timestamp", String.valueOf(System.currentTimeMillis()))
-                        .build();
+                        .header("X-Gateway-Timestamp", String.valueOf(System.currentTimeMillis()));
+                    
+                    // 保留原始的Authorization header，让下游服务也能验证
+                    if (!finalRequest.getHeaders().getOrEmpty(HttpHeaders.AUTHORIZATION).isEmpty()) {
+                        requestBuilder.header(HttpHeaders.AUTHORIZATION, 
+                            finalRequest.getHeaders().getFirst(HttpHeaders.AUTHORIZATION));
+                    }
+                    
+                    ServerHttpRequest modifiedRequest = requestBuilder.build();
                     
                     return chain.filter(finalExchange.mutate().request(modifiedRequest).build());
                 });
